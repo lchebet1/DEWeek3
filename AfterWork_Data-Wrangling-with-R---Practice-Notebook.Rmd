@@ -1,0 +1,342 @@
+
+---
+Title: "MTN CUSTOMERS SUBSCRIPTION"
+output:
+  pdf_document: default
+  html_document: default
+---
+## MTN TELECOM SUBSCRIBERS INSIGHTS
+```{r}
+library(tidyverse)
+```
+
+## 1. Defining the Question
+#### 1.1  Specifying the Data Analysis Question
+The management would like to get your assistance in understanding the subscribed customers. Your recommendations informed by your analysis will help them make decisions on effective customer retention programs
+
+#### 1.2 Defining the Metric for Success
+Understanding why customers leave for other operator
+
+#### 1.3 Understanding the context
+MTN Telecom offers mobile and internet services to its customers. These services include phone, multiple lines, internet, online security, online backup, device protection, tech support, and streaming TV and movies.
+You have been provided with the current customer data. Since you will be working towards a descriptive report than a predictive one, you decide to think critically of the kind of questions that would help you craft customer retention programs. You then later use the given data set to answer your questions but before you start, you reading, explore, clean and visualise your dataset.
+
+#### 1.4 Recording the Experimental Design
+The steps to be taken include:
+    Load dataset and preview its summarized information to get a feel of what you will be working with.
+    Carry out data cleaning.
+    Carry out data analysis.
+    Interpret results.
+    Provide recommendations based on results of analysis.
+    Challenge your solution.
+
+#### 1.5 Data Relevance
+For now, the data we have contains churn data which will be critical for our research specific analysis.
+
+## 2 Data cleaning and preparation
+#### 2.1 load and preview the data
+```{r}
+mtn_customers_df <- read_csv('telecom_customer.csv')
+head(mtn_customers_df,5)
+tail(mtn_customers_df,5)
+glimpse(mtn_customers_df)
+str(mtn_customers_df)
+sample_n(mtn_customers_df, 10)
+dim(mtn_customers_df)
+```
+#### 2.2. standardise the data
+Convert columns names to lowercase and strip leading and ending spaces
+```{r}
+names(mtn_customers_df) <- tolower(names(mtn_customers_df))
+names(mtn_customers_df) <- trimws(names(mtn_customers_df), which="both")
+head(mtn_customers_df)
+```
+
+#### 2.3 Dealing with missing data
+Check for missing values in the data and remove or replace them i.e with mean of values
+```{r}
+#remove the missing values since they are not many
+dim(mtn_customers_df)
+colSums(is.na(mtn_customers_df))
+mtn_customers_df <- na.omit(mtn_customers_df)
+#check for missing data after removal of missingdata
+dim(mtn_customers_df)
+colSums(is.na(mtn_customers_df))
+```
+#### 2.4 Dealing with duplicated entry
+```{r}
+#check for duplicates
+dim(mtn_customers_df)
+mtn_customers_df[duplicated(mtn_customers_df),]
+mtn_customers_df <- mtn_customers_df[!duplicated(mtn_customers_df),]
+dim(mtn_customers_df)
+```
+
+#### 2.5 Checking for number of unique values in each column
+```{r}
+#remove the customerid columns which is unique
+unique_values_df <- mtn_customers_df
+unique_values_df <- select(unique_values_df, -c("customerid", "tenure", "monthlycharges", "totalcharges"))
+apply(unique_values_df, 2, table)
+```
+
+```{r}
+dim(mtn_customers_df)
+```
+
+##### 2.5.1 Resolving issues with unique values
+'payment_method' has values with spelling errors such as "Mailed checkkk" and "Electronic chekk", which created duplicates
+```{r}
+#resolve issue with payment method values by correcting "Mailed checkkk" to "Mailed check" and "Electronic checkk" to Electronic check"
+mtn_customers_df$paymentmethod[mtn_customers_df$paymentmethod == "Mailed checkkk"] <- "Mailed check"
+mtn_customers_df$paymentmethod[mtn_customers_df$paymentmethod == "Electronic checkk"] <- "Electronic check"
+unique(mtn_customers_df$paymentmethod)
+```
+#### 2.6 Check for outlier for 'tenure', 'monthly_charges' and 'total_charges'
+##### Tenure
+```{r}
+#using quantile function to find values below 2.5% and above 97.5%
+tenure_lower_bound <- quantile(mtn_customers_df$tenure, 0.025)
+tenure_upper_bound <- quantile(mtn_customers_df$tenure, 0.975)
+tenure_lower_bound
+tenure_upper_bound
+#use the which function to get index for the outliers
+tenure_not_outliers <- which(mtn_customers_df$tenure >= tenure_lower_bound & mtn_customers_df$tenure <= tenure_upper_bound)
+tenure_mtn_customers_df <- mtn_customers_df[tenure_not_outliers,]
+```
+```{r}
+dim(mtn_customers_df)
+dim(tenure_mtn_customers_df)
+```
+##### monthly_charges
+```{r}
+#using quantile function to find values below 2.5% and above 97.5%
+month_lower_bound <- quantile(tenure_mtn_customers_df$monthlycharges, 0.01)
+month_upper_bound <- quantile(tenure_mtn_customers_df$monthlycharges, 0.99)
+month_lower_bound
+month_upper_bound
+#use the which function to get index for the outliers
+month_not_outliers <- which(tenure_mtn_customers_df$monthlycharges >= month_lower_bound & tenure_mtn_customers_df$monthlycharges <= month_upper_bound)
+month_mtn_customers_df <- tenure_mtn_customers_df[month_not_outliers,]
+```
+```{r}
+dim(mtn_customers_df)
+dim(tenure_mtn_customers_df)
+dim(month_mtn_customers_df)
+```
+##### monthly_charges
+```{r}
+#using quantile function to find values below 2.5% and above 97.5%
+totalcharge_lower_bound <- quantile(month_mtn_customers_df$totalcharges, 0.01)
+totalcharge_upper_bound <- quantile(month_mtn_customers_df$totalcharges, 0.99)
+totalcharge_lower_bound
+totalcharge_upper_bound
+#use the which function to get index for the outliers
+totalcharge_not_outliers <- which(month_mtn_customers_df$totalcharges >= totalcharge_lower_bound & month_mtn_customers_df$totalcharges <= totalcharge_upper_bound)
+cleaned_mtn_customers_df <- month_mtn_customers_df[totalcharge_not_outliers,]
+head(cleaned_mtn_customers_df)
+```
+```{r}
+#check out the data
+dim(mtn_customers_df)
+dim(tenure_mtn_customers_df)
+dim(month_mtn_customers_df)
+dim(cleaned_mtn_customers_df)
+head(cleaned_mtn_customers_df)
+```
+## 3  Research-specific Analysis
+#### 3.1 What percentage of customers from our dataset churned?
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(churn) %>%
+  summarise(count_of_churned = length(churn) ) %>%
+  mutate(percent_churned = 100* count_of_churned/sum(count_of_churned))
+  
+```
+We see that the majority of the customers in this dataset, 73% of the customers are still subscribed to MTN while 26.6% of the customers churned.
+#### 3.2 How many of each gender male and female churned?
+both male and female are churning in equal measure
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(gender, churn)%>%
+  summarise(count_of_churn = length(churn))%>%
+  mutate(percent_gender_churn = 100*(count_of_churn/sum(count_of_churn)) )
+```
+
+#### 3.3 we investigate the distribution of churn by senior citizen and recording
+senior citizen leaving are higher rate than young people
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(seniorcitizen, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_senior_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+
+#### 3.4 distribution of churn by partner
+people with partner are less likely to churn compared to people with no partner
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(partner, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_partner_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.5 distribution of churn by dependents
+people with dependents are less likely to churn compared to people with no partner
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(dependents, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_partner_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+
+#### 3.6 distribution of churn by phone service
+people with phone service or no phone service have equal probability of churning
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(phoneservice, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_phoneservice_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+
+#### 3.7 distribution of churn by multiple lines
+people with or without multiple have equal probability of leaving
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(multiplelines, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_multiple_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+
+#### 3.8 distribution of churn by internet service
+people with DSL or No internet service are less likely to leave, while people with fiber optic have equal probability of leaving
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(internetservice, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_internetservice_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.9 distribution of churn by online security
+people with online security or no internet service are less likely to leave but people with no online security have equal probability of leaving
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(onlinesecurity, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_onlinesecurity_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.10 distribution of churn by online backup
+people with online backup or no internet service are less likely to leave but people with no online backup have equal probability of leaving
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(onlinebackup, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_onlinebackup_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+
+#### 3.11 distribution of churn by device protection
+people with no internet service are very less likely to leave and people WITH or NO  device protection are also less likely to leave
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(deviceprotection, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_devprotection_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.12 distribution of churn by tech support
+people with tech sopport or no internet service are less likely to leave but people with no techsupport have equal probability of leaving
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(techsupport, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_techsupport_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.13 distribution of churn by streaming tv
+people with no internet service are more likely to stay compare to people with or having no streaming tv service
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(streamingtv, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_streamigtv_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.14 distribution of churn by streaming movies
+people with no internet service are more likely to stay compare to people with or having no streaming movies service
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(streamingmovies, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_streamigmovies_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.15 distribution of churn by contract
+people with long contract 1 or 2 year contract are more likely to stay compared to people with month to month contract
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(contract, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_contract_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.16 distribution of churn by paperless billing
+people with no paperless billing are more likely to stay compared to people with paperless billing
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(paperlessbilling, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_paperless_churn = 100*( count_of_churn/sum(count_of_churn)))
+```
+#### 3.17 distribution of churn by payment method
+people with bank transfer, credit card and mailed check are more likely to stay compared to people with electronic check
+```{r}
+cleaned_mtn_customers_df %>%
+  group_by(paymentmethod, churn)%>%
+  summarise(count_of_churn=length(churn),)%>%
+  mutate(percent_of_paymentmethod_churn = 100*( count_of_churn/sum(count_of_churn)))
+  
+```
+## 4. General Analysis
+Find the distribution for each aspect of the customer i.e what percentage of customer are male or female or have or dont have internet service
+```{r}
+#cleaned_mtn_customers_df <- select(cleaned_mtn_customers_df, -c("customerid"))
+columns = names(cleaned_mtn_customers_df)
+i <- 0
+for (column in colnames(cleaned_mtn_customers_df)){
+  y <- cleaned_mtn_customers_df %>%
+    group_by_at(column)%>%
+    summarise(count=length(gender))%>%
+    mutate(percent = 100* (count/sum(count) ))
+  print(column)
+  print(y)
+}
+```
+## 5. Summary of Findings
+
+Based on the results of the analysis, the following conclusions were arrived at:
+
+1. There is no significant difference in churn rate between male and female subscribers. So this is not an area management needs to worry about.
+2. Majority of the customers are not senior citizens so this makes this dataset biased and hard to identify whether being a senior citizen affects churn rate.
+3.Not having a partner increases the likelihood of churning.
+4. Not having dependents increases the likelihood of churning.
+5. generally customers with No internet service are more likely to stay on the network followed by customer with the following service ("phoneservice", "internetservice", "onlinesecurity","onlinebackup","deviceprotection", "techsupport" "streamingtv", "streamingmovies"). customer with No those services are more likely to leave
+6. customers with no paperless billing are more likely to stay compared to people with paperless billing
+7. customers with bank transfer, credit card and mailed check are more likely to stay compared to people with electronic check
+8.  customers with long contract 1 or 2 year contract are more likely to stay compared to people with month to month contract
+9. having multiple lines doesnt influence the customer staying or leaving
+10. majority of customer are on short contract
+11. customers with DSL internet service are the least
+
+## 6.Recommendations
+In order to create an effective customer retention program, management should take the following measures:
+1. Focus more on meeting the needs of non-senior citizens.
+2. Focus more on having customers that have partners and/or dependents since these people are less likely to churn. Alternatively, management can come up with services specifically designed for customers without parters and/or dependents. This would require additional research.
+3. make initiative for people to have DSL internet service
+4. make initiative to have customer subscribe to long term contracts
+5. make initiative for customers to subscribes to different services like phoneservice", "internetservice", "onlinesecurity","onlinebackup","deviceprotection", "techsupport" "streamingtv", "streamingmovies")
+
+## 7. Challenging your Solution
+a). Did we have the right data? Do we need other data to answer our question?
+
+As far as I can tell, we had the right data. However, more data is still needed, particularly those with more customers who churned so we can have a better understanding of why they might have churned.
+
+## 8 Did we have the right question?
+
+Yes, we did.
+
+
+
+
